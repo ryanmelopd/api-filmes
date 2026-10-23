@@ -1,14 +1,15 @@
 package com.melo.api_filmes.controller;
 
-import com.melo.api_filmes.database.model.FilmeModel;
 import com.melo.api_filmes.dto.FilmeDto;
+import com.melo.api_filmes.dto.FilmePatchDto;
+import com.melo.api_filmes.dto.FilmeResponseDto;
 import com.melo.api_filmes.service.FilmeService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/filmes")
@@ -17,44 +18,43 @@ public class FilmeController {
     private final FilmeService filmeService;
 
     @GetMapping
-    @ResponseStatus(HttpStatus.OK)
-    public List<FilmeModel> listarTodos() {
+    public List<FilmeResponseDto> listarTodos() {
         return filmeService.listarTodos();
     }
 
+    @GetMapping("/{id}")
+    public FilmeResponseDto buscarPorId(@PathVariable Integer id) {
+        return filmeService.buscarFilmePorId(id);
+    }
+
     @GetMapping("/melhores-avaliados")
-    @ResponseStatus(HttpStatus.OK)
-    public List<FilmeModel> listarFilmesMaisBemAvaliados() {
+    public List<FilmeResponseDto> listarFilmesMaisBemAvaliados() {
         return filmeService.listarFilmesMaisBemAvaliados();
     }
 
     @GetMapping("/melhor-avaliado")
-    @ResponseStatus(HttpStatus.OK)
-    public Optional<FilmeModel> listarFilmeMelhorAvaliado() {
+    public FilmeResponseDto listarFilmeMelhorAvaliado() {
         return filmeService.listarFilmeMelhorAvaliado();
     }
 
     @GetMapping("/pior-avaliado")
-    @ResponseStatus(HttpStatus.OK)
-    public Optional<FilmeModel> listarFilmePiorAvaliado() {
+    public FilmeResponseDto listarFilmePiorAvaliado() {
         return filmeService.listarFilmePiorAvaliado();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public FilmeModel criarFilme(@RequestBody FilmeDto filmeDto) {
+    public FilmeResponseDto criarFilme(@Valid @RequestBody FilmeDto filmeDto) {
         return filmeService.criarFilme(filmeDto);
     }
 
     @PutMapping("/{id}")
-    @ResponseStatus(HttpStatus.OK)
-    public FilmeModel atualizarFilme(@PathVariable Integer id, @RequestBody FilmeDto filmeDto) {
+    public FilmeResponseDto atualizarFilme(@PathVariable Integer id, @Valid @RequestBody FilmeDto filmeDto) {
         return filmeService.atualizarFilme(filmeDto, id);
     }
 
     @PatchMapping("/{id}")
-    @ResponseStatus(HttpStatus.OK)
-    public FilmeModel atualizarParcialmente(@PathVariable Integer id, @RequestBody FilmeDto filmeDto) {
+    public FilmeResponseDto atualizarParcialmente(@PathVariable Integer id, @Valid @RequestBody FilmePatchDto filmeDto) {
         return filmeService.atualizarParcialmente(filmeDto, id);
     }
 

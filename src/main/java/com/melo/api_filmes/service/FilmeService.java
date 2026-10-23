@@ -1,149 +1,106 @@
 package com.melo.api_filmes.service;
 
 import com.melo.api_filmes.database.model.FilmeModel;
+import com.melo.api_filmes.database.repository.FilmeRepository;
 import com.melo.api_filmes.dto.FilmeDto;
-import com.melo.api_filmes.exception.ExceptionNotFound;
+import com.melo.api_filmes.dto.FilmePatchDto;
+import com.melo.api_filmes.dto.FilmeResponseDto;
+import com.melo.api_filmes.exception.FilmeNaoEncontradoException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.List;
 
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class FilmeService {
-    private static final List<FilmeModel> FILMES = new ArrayList<>();
 
-    static {
-        FILMES.add(FilmeModel.builder()
-                .id(1)
-                .titulo("Duna: Parte Um")
-                .genero("Ficção Científica")
-                .anoDeLancamento(2021)
-                .notaIMDB(8.0)
-                .build());
+    private static final double NOTA_MINIMA_MELHORES_AVALIADOS = 8.0;
 
-        FILMES.add(FilmeModel.builder()
-                .id(2)
-                .titulo("Interestelar")
-                .genero("Ficção Científica")
-                .anoDeLancamento(2014)
-                .notaIMDB(8.7)
-                .build());
+    private final FilmeRepository filmeRepository;
 
-        FILMES.add(FilmeModel.builder()
-                .id(3)
-                .titulo("O Poderoso Chefão")
-                .genero("Drama")
-                .anoDeLancamento(1972)
-                .notaIMDB(9.2)
-                .build());
-
-        FILMES.add(FilmeModel.builder()
-                .id(4)
-                .titulo("Batman: O Cavaleiro das Trevas")
-                .genero("Ação")
-                .anoDeLancamento(2008)
-                .notaIMDB(9.0)
-                .build());
-
-        FILMES.add(FilmeModel.builder()
-                .id(5)
-                .titulo("Matrix")
-                .genero("Ficção Científica")
-                .anoDeLancamento(1999)
-                .notaIMDB(8.7)
-                .build());
-
-        FILMES.add(FilmeModel.builder()
-                .id(6)
-                .titulo("Pulp Fiction")
-                .genero("Crime")
-                .anoDeLancamento(1994)
-                .notaIMDB(8.9)
-                .build());
-    }
-
-    public List<FilmeModel> listarTodos() {
-        return new ArrayList<>(FILMES);
-    }
-
-    public List<FilmeModel> listarFilmesMaisBemAvaliados() {
-        return FILMES.stream()
-                .filter(filme -> filme.getNotaIMDB() >= 8.0)
+    public List<FilmeResponseDto> listarTodos() {
+        return filmeRepository.findAll().stream()
+                .map(FilmeResponseDto::deModelo)
                 .toList();
     }
 
-    public Optional<FilmeModel> listarFilmeMelhorAvaliado() {
-        return FILMES.stream()
-                .max(Comparator.comparing(FilmeModel::getNotaIMDB));
+    public FilmeResponseDto buscarFilmePorId(Integer id) {
+        return FilmeResponseDto.deModelo(buscarEntidadePorId(id));
     }
 
-    public Optional<FilmeModel> listarFilmePiorAvaliado() {
-        return FILMES.stream()
-                .min(Comparator.comparing(FilmeModel::getNotaIMDB));
+    public List<FilmeResponseDto> listarFilmesMaisBemAvaliados() {
+        return filmeRepository.findByNotaIMDBGreaterThanEqual(NOTA_MINIMA_MELHORES_AVALIADOS).stream()
+                .map(FilmeResponseDto::deModelo)
+                .toList();
     }
 
-    public FilmeModel criarFilme(FilmeDto filmeDto) {
-        int novoId = FILMES.stream()
-                .map(FilmeModel::getId)
-                .max(Integer::compareTo)
-                .orElse(0) + 1;
+    public FilmeResponseDto listarFilmeMelhorAvaliado() {
+        FilmeModel filme = filmeRepository.findFirstByNotaIMDBIsNotNullOrderByNotaIMDBDesc()
+                .orElseThrow(() -> new FilmeNaoEncontradoException("Nenhum filme com nota cadastrado"));
+        return FilmeResponseDto.deModelo(filme);
+    }
 
-        FilmeModel filmeModel = FilmeModel.builder()
-                .id(novoId)
+    public FilmeResponseDto listarFilmePiorAvaliado() {
+        FilmeModel filme = filmeRepository.findFirstByNotaIMDBIsNotNullOrderByNotaIMDBAsc()
+                .orElseThrow(() -> new FilmeNaoEncontradoException("Nenhum filme com nota cadastrado"));
+        return FilmeResponseDto.deModelo(filme);
+    }
+
+    @Transactional
+    public FilmeResponseDto criarFilme(FilmeDto filmeDto) {
+        FilmeModel filme = FilmeModel.builder()
                 .titulo(filmeDto.getTitulo())
                 .genero(filmeDto.getGenero())
                 .anoDeLancamento(filmeDto.getAnoDeLancamento())
                 .notaIMDB(filmeDto.getNotaIMDB())
                 .build();
 
-        FILMES.add(filmeModel);
-        return filmeModel;
+        return FilmeResponseDto.deModelo(filmeRepository.save(filme));
     }
 
-    public FilmeModel atualizarFilme(FilmeDto filmeDto, Integer id) {
-        FilmeModel filmeModel = FILMES.stream()
-                .filter(filme -> filme.getId().equals(id))
-                .findAny()
-                .orElseThrow(() -> new ExceptionNotFound("Filme não encontrado"));
+    @Transactional
+    public FilmeResponseDto atualizarFilme(FilmeDto filmeDto, Integer id) {
+        FilmeModel filme = buscarEntidadePorId(id);
 
-        filmeModel.setTitulo(filmeDto.getTitulo());
-        filmeModel.setNotaIMDB(filmeDto.getNotaIMDB());
-        filmeModel.setGenero(filmeDto.getGenero());
-        filmeModel.setAnoDeLancamento(filmeDto.getAnoDeLancamento());
+        filme.setTitulo(filmeDto.getTitulo());
+        filme.setGenero(filmeDto.getGenero());
+        filme.setAnoDeLancamento(filmeDto.getAnoDeLancamento());
+        filme.setNotaIMDB(filmeDto.getNotaIMDB());
 
-        return filmeModel;
+        return FilmeResponseDto.deModelo(filmeRepository.save(filme));
     }
 
-    public FilmeModel atualizarParcialmente(FilmeDto dto, Integer id) {
-        FilmeModel filmeModel= FILMES.stream()
-                .filter(filme -> filme.getId().equals(id))
-                .findAny()
-                .orElseThrow(() -> new ExceptionNotFound("Filme não encontrado"));
+    @Transactional
+    public FilmeResponseDto atualizarParcialmente(FilmePatchDto filmeDto, Integer id) {
+        FilmeModel filme = buscarEntidadePorId(id);
 
-        if (dto.getTitulo() != null) {
-            filmeModel.setTitulo(dto.getTitulo());
+        if (filmeDto.getTitulo() != null) {
+            filme.setTitulo(filmeDto.getTitulo());
+        }
+        if (filmeDto.getGenero() != null) {
+            filme.setGenero(filmeDto.getGenero());
+        }
+        if (filmeDto.getAnoDeLancamento() != null) {
+            filme.setAnoDeLancamento(filmeDto.getAnoDeLancamento());
+        }
+        if (filmeDto.getNotaIMDB() != null) {
+            filme.setNotaIMDB(filmeDto.getNotaIMDB());
         }
 
-        if (dto.getGenero() != null) {
-            filmeModel.setGenero(dto.getGenero());
-        }
-
-        if (dto.getAnoDeLancamento() != null) {
-            filmeModel.setAnoDeLancamento(dto.getAnoDeLancamento());
-        }
-
-        if (dto.getNotaIMDB() != null) {
-            filmeModel.setNotaIMDB(dto.getNotaIMDB());
-        }
-
-        return filmeModel;
+        return FilmeResponseDto.deModelo(filmeRepository.save(filme));
     }
 
+    @Transactional
     public void deletarFilme(Integer id) {
-        FilmeModel filme = FILMES.stream()
-                .filter(f -> f.getId().equals(id))
-                .findAny()
-                .orElseThrow(() -> new ExceptionNotFound("Filme não encontrado"));
+        FilmeModel filme = buscarEntidadePorId(id);
+        filmeRepository.delete(filme);
+    }
 
-        FILMES.remove(filme);
+    private FilmeModel buscarEntidadePorId(Integer id) {
+        return filmeRepository.findById(id)
+                .orElseThrow(() -> new FilmeNaoEncontradoException("Filme não encontrado com id: " + id));
     }
 }
